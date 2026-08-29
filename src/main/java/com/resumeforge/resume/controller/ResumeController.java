@@ -3,8 +3,11 @@ import com.resumeforge.common.response.ApiResponse;
 import com.resumeforge.resume.dto.ResumeRequest;
 import com.resumeforge.resume.entity.Resume;
 import com.resumeforge.resume.service.ResumeService;
+import com.resumeforge.user.entity.User;
+import com.resumeforge.user.repository.UserRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -13,14 +16,27 @@ import java.util.List;
 public class ResumeController {
 
     private final ResumeService resumeService;
+    private final UserRepository userRepository;
 
-    public ResumeController(ResumeService resumeService) {
+    public ResumeController(
+            ResumeService resumeService, UserRepository userRepository) {
         this.resumeService = resumeService;
+        this.userRepository = userRepository;
+    }
+
+    private User getCurrentUser(Authentication authentication) {
+        return userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse createResume(@Valid @RequestBody ResumeRequest request) {
+    public ApiResponse createResume(
+            @Valid @RequestBody ResumeRequest request,
+            Authentication authentication) {
+
+        User user = getCurrentUser(authentication);
 
         Resume resume = new Resume();
         resume.setTitle(request.getTitle());
@@ -29,7 +45,7 @@ public class ResumeController {
         resume.setPhone(request.getPhone());
         resume.setSummary(request.getSummary());
 
-        Resume savedResume = resumeService.createResume(resume);
+        Resume savedResume = resumeService.createResume(resume, user);
 
         return new ApiResponse(
                 true,
@@ -39,9 +55,11 @@ public class ResumeController {
     }
 
     @GetMapping
-    public ApiResponse getAllResumes() {
+    public ApiResponse getAllResumes(Authentication authentication) {
 
-        List<Resume> resumes = resumeService.getAllResumes();
+        User user = getCurrentUser(authentication);
+
+        List<Resume> resumes = resumeService.getAllResumes(user);
 
         return new ApiResponse(
                 true,
@@ -51,11 +69,15 @@ public class ResumeController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse getResumeById(@PathVariable Long id) {
+    public ApiResponse getResumeById(
+            @PathVariable Long id,
+            Authentication authentication) {
 
-        Resume resume = resumeService.getResumeById(id)
+        User user = getCurrentUser(authentication);
+
+        Resume resume = resumeService.getResumeById(id, user)
                 .orElseThrow(() ->
-                        new RuntimeException("Resume not found with id: " + id));
+                        new RuntimeException("Resume not found"));
 
         return new ApiResponse(
                 true,
@@ -67,7 +89,10 @@ public class ResumeController {
     @PutMapping("/{id}")
     public ApiResponse updateResume(
             @PathVariable Long id,
-            @Valid @RequestBody ResumeRequest request) {
+            @Valid @RequestBody ResumeRequest request,
+            Authentication authentication) {
+
+        User user = getCurrentUser(authentication);
 
         Resume updatedResume = new Resume();
         updatedResume.setTitle(request.getTitle());
@@ -76,7 +101,11 @@ public class ResumeController {
         updatedResume.setPhone(request.getPhone());
         updatedResume.setSummary(request.getSummary());
 
-        Resume resume = resumeService.updateResume(id, updatedResume);
+        Resume resume = resumeService.updateResume(
+                id,
+                updatedResume,
+                user
+        );
 
         return new ApiResponse(
                 true,
@@ -86,9 +115,13 @@ public class ResumeController {
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse deleteResume(@PathVariable Long id) {
+    public ApiResponse deleteResume(
+            @PathVariable Long id,
+            Authentication authentication) {
 
-        resumeService.deleteResume(id);
+        User user = getCurrentUser(authentication);
+
+        resumeService.deleteResume(id, user);
 
         return new ApiResponse(
                 true,
