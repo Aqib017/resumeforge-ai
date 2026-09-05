@@ -27,10 +27,12 @@ public class UserService {
     }
 
     public Optional<User> getUserByEmail(String email) {
+
         return userRepository.findByEmail(email);
     }
 
     public boolean emailExists(String email) {
+
         return userRepository.existsByEmail(email);
     }
 
